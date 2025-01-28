@@ -1,6 +1,8 @@
 package utils
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 type Config struct {
 	DBSource string `mapstructure:"DB_SOURCE"`
