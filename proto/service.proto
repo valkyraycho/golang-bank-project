@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/valkyraycho/bank_project/pb";
+
+package pb;
+
+import "user.proto";
+
+service BankService {
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
+    rpc LoginUser (LoginUserRequest) returns (LoginUserResponse);
+}
