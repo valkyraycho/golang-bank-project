@@ -33,6 +33,11 @@ jobs:
             - name: Set up environment variables
               run: cp .env.dev .env
 
+            - name: Install golang-migrate cli
+              run: |
+                  curl -L https://github.com/golang-migrate/migrate/releases/download/v4.18.1/migrate.linux-amd64.tar.gz | tar xvz
+                  sudo mv migrate /usr/bin/migrate
+
             - name: Run migrations
               run: make migrationup
 
