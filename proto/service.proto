@@ -5,9 +5,15 @@ option go_package = "github.com/valkyraycho/bank_project/pb";
 package pb;
 
 import "user.proto";
+import "account.proto";
+import "transfer.proto";
 
 service BankService {
     rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
     rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
     rpc LoginUser (LoginUserRequest) returns (LoginUserResponse);
+    rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse);
+    rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
+    rpc GetAccounts (GetAccountsRequest) returns (GetAccountsResponse);
+    rpc CreateTransfer (CreateTransferRequest) returns (CreateTransferResponse);
 }

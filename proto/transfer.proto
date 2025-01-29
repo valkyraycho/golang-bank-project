@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option go_package = "github.com/valkyraycho/bank_project/pb";
+
+package pb;
+
+import "google/protobuf/timestamp.proto";
+import "account.proto";
+
+message Transfer {
+    int64 from_account_id = 1;
+    int64 to_account_id = 2;
+    int64 amount = 3;
+    google.protobuf.Timestamp created_at = 4;
+}
+
+message Entry {
+    int64 account_id = 1;
+    int64 amount = 2;
+    google.protobuf.Timestamp created_at = 3;
+}
+
+message CreateTransferRequest {
+    int64 from_account_id = 1;
+    int64 to_account_id = 2;
+    int64 amount = 3;
+}
+
+message CreateTransferResponse {
+    Transfer transfer = 1;
+    Account from_account = 2;
+    Account to_account = 3;
+    Entry from_entry = 4;
+    Entry to_entry = 5;
+}
