@@ -20,4 +20,7 @@ protoc:
     --grpc-gateway_opt paths=source_relative \
     proto/*.proto
 
-.PHONY: migrateup migrateup1 migratedown migratedown1 test protoc
+mock:
+	mockgen -destination db/mock/store.go github.com/valkyraycho/bank_project/db/sqlc Store
+
+.PHONY: migrateup migrateup1 migratedown migratedown1 test protoc mock
