@@ -19,7 +19,7 @@ service BankService {
       };
     rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse) {
         option (google.api.http) = {
-          patch: "/v1/users"
+          patch: "/v1/users/{id}"
           body: "*"
         };
       };

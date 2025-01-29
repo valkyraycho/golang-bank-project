@@ -1,12 +1,23 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net"
+	"net/http"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/valkyraycho/bank_project/api"
+	db "github.com/valkyraycho/bank_project/db/sqlc"
+	"github.com/valkyraycho/bank_project/pb"
 	"github.com/valkyraycho/bank_project/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const migrationURL = "file://db/migration"
@@ -16,7 +27,16 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot load environment variables")
 	}
+
 	runDBMigrations(migrationURL, cfg.DBSource)
+
+	connPool, err := pgxpool.New(context.Background(), cfg.DBSource)
+	if err != nil {
+		log.Fatal("cannot connect to db: ", err)
+	}
+	store := db.NewStore(connPool)
+	go runHTTPServer(context.Background(), cfg, store)
+	runGRPCServer(context.Background(), cfg, store)
 }
 
 func runDBMigrations(migrationURL, dbsource string) {
@@ -33,4 +53,42 @@ func runDBMigrations(migrationURL, dbsource string) {
 		return
 	}
 	log.Println("database migrated successfully")
+}
+
+func runGRPCServer(ctx context.Context, cfg utils.Config, store db.Store) {
+	server := api.NewServer(store)
+	grpcServer := grpc.NewServer()
+
+	pb.RegisterBankServiceServer(grpcServer, server)
+	reflection.Register(grpcServer)
+
+	lis, err := net.Listen("tcp", cfg.GRPCServerAddress)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	log.Printf("start gRPC server at %s", cfg.GRPCServerAddress)
+	grpcServer.Serve(lis)
+}
+
+func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
+	server := api.NewServer(store)
+
+	mux := runtime.NewServeMux(
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+			MarshalOptions: protojson.MarshalOptions{
+				UseProtoNames: true,
+			},
+			UnmarshalOptions: protojson.UnmarshalOptions{
+				DiscardUnknown: true,
+			},
+		}),
+	)
+
+	err := pb.RegisterBankServiceHandlerServer(ctx, mux, server)
+	if err != nil {
+		log.Fatal("failed to register http handler server")
+	}
+
+	log.Printf("start http server at %s", cfg.HTTPServerAddress)
+	http.ListenAndServe(cfg.HTTPServerAddress, mux)
 }

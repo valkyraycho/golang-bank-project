@@ -5,7 +5,9 @@ import (
 )
 
 type Config struct {
-	DBSource string `mapstructure:"DB_SOURCE"`
+	DBSource          string `mapstructure:"DB_SOURCE"`
+	HTTPServerAddress string `mapstructure:"HTTP_SERVER_ADDRESS"`
+	GRPCServerAddress string `mapstructure:"GRPC_SERVER_ADDRESS"`
 }
 
 func LoadConfig(path string) (Config, error) {

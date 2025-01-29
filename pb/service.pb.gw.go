@@ -63,9 +63,18 @@ func request_BankService_UpdateUser_0(ctx context.Context, marshaler runtime.Mar
 	var (
 		protoReq UpdateUserRequest
 		metadata runtime.ServerMetadata
+		err      error
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+	}
+	protoReq.Id, err = runtime.Int64(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
 	}
 	msg, err := client.UpdateUser(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
@@ -75,9 +84,18 @@ func local_request_BankService_UpdateUser_0(ctx context.Context, marshaler runti
 	var (
 		protoReq UpdateUserRequest
 		metadata runtime.ServerMetadata
+		err      error
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+	}
+	protoReq.Id, err = runtime.Int64(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
 	}
 	msg, err := server.UpdateUser(ctx, &protoReq)
 	return msg, metadata, err
@@ -255,7 +273,7 @@ func RegisterBankServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/pb.BankService/UpdateUser", runtime.WithHTTPPathPattern("/v1/users"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/pb.BankService/UpdateUser", runtime.WithHTTPPathPattern("/v1/users/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -430,7 +448,7 @@ func RegisterBankServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/pb.BankService/UpdateUser", runtime.WithHTTPPathPattern("/v1/users"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/pb.BankService/UpdateUser", runtime.WithHTTPPathPattern("/v1/users/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -533,7 +551,7 @@ func RegisterBankServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 var (
 	pattern_BankService_CreateUser_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "users"}, ""))
-	pattern_BankService_UpdateUser_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "users"}, ""))
+	pattern_BankService_UpdateUser_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "users", "id"}, ""))
 	pattern_BankService_LoginUser_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "users", "login"}, ""))
 	pattern_BankService_CreateAccount_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "accounts"}, ""))
 	pattern_BankService_GetAccount_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "accounts", "id"}, ""))
