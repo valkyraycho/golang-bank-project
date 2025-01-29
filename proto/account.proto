@@ -33,7 +33,7 @@ message GetAccountResponse {
 }
 
 message GetAccountsRequest {
-    int64 id = 1;
+    int64 owner_id = 1;
     int32 limit = 2;
     int32 offset = 3;
 }

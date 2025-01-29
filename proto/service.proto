@@ -8,12 +8,47 @@ import "user.proto";
 import "account.proto";
 import "transfer.proto";
 
+import "google/api/annotations.proto";
+
 service BankService {
-    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
-    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
-    rpc LoginUser (LoginUserRequest) returns (LoginUserResponse);
-    rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse);
-    rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
-    rpc GetAccounts (GetAccountsRequest) returns (GetAccountsResponse);
-    rpc CreateTransfer (CreateTransferRequest) returns (CreateTransferResponse);
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {
+        option (google.api.http) = {
+          post: "/v1/users"
+          body: "*"
+        };
+      };
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse) {
+        option (google.api.http) = {
+          patch: "/v1/users"
+          body: "*"
+        };
+      };
+    rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {
+        option (google.api.http) = {
+          post: "/v1/users/login"
+          body: "*"
+        };
+    };
+    rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse) {
+        option (google.api.http) = {
+          post: "/v1/accounts"
+          body: "*"
+        };
+    };
+    rpc GetAccount (GetAccountRequest) returns (GetAccountResponse) {
+        option (google.api.http) = {
+          get: "/v1/accounts/{id}"
+        };
+    };
+    rpc GetAccounts (GetAccountsRequest) returns (GetAccountsResponse) {
+        option (google.api.http) = {
+          get: "/v1/accounts"
+        };
+    };
+    rpc CreateTransfer (CreateTransferRequest) returns (CreateTransferResponse) {
+        option (google.api.http) = {
+          post: "/v1/transfers"
+          body: "*"
+        };
+    };
 }
