@@ -18,7 +18,7 @@ func TestCreateUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	user := randomUser(t)
 
-	gotUser, err := testStore.GetUser(context.Background(), user.ID)
+	gotUser, err := testStore.GetUser(context.Background(), user.Username)
 	require.NoError(t, err)
 	require.NotEmpty(t, gotUser)
 	require.Equal(t, user.Username, gotUser.Username)
@@ -35,7 +35,7 @@ func TestDeleteUser(t *testing.T) {
 	err := testStore.DeleteUser(context.Background(), user.ID)
 	require.NoError(t, err)
 
-	deletedUser, err := testStore.GetUser(context.Background(), user.ID)
+	deletedUser, err := testStore.GetUser(context.Background(), user.Username)
 	require.Error(t, err)
 	require.EqualError(t, err, pgx.ErrNoRows.Error())
 	require.Empty(t, deletedUser)

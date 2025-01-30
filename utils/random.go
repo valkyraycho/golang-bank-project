@@ -2,8 +2,11 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 const alphabets = "abcdefghijklmnopqrstuvwxyz"
@@ -37,4 +40,12 @@ func RandomInt(min, max int64) int64 {
 
 func RandomMoney() int64 {
 	return RandomInt(0, 1000)
+}
+
+func RandomUUID() uuid.UUID {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		log.Fatal("failed to create uuid")
+	}
+	return id
 }

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	mockdb "github.com/valkyraycho/bank_project/db/mock"
 	db "github.com/valkyraycho/bank_project/db/sqlc"
@@ -216,6 +218,184 @@ func TestCreateUser(t *testing.T) {
 
 		server := NewTestServer(t, store)
 		res, err := server.CreateUser(context.Background(), testCase.req)
+		testCase.checkResponse(t, res, err)
+	}
+}
+
+func TestLoginUser(t *testing.T) {
+	user, password := randomUser(t)
+
+	testCases := []struct {
+		name          string
+		req           *pb.LoginUserRequest
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(t *testing.T, res *pb.LoginUserResponse, err error)
+	}{
+		{
+			name: "OK",
+			req: &pb.LoginUserRequest{
+				Username: user.Username,
+				Password: password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.Session{
+						ID:           utils.RandomUUID(),
+						UserID:       user.ID,
+						RefreshToken: utils.RandomString(32),
+						UserAgent:    "",
+						ClientIp:     "",
+						IsBlocked:    false,
+						ExpiresAt:    time.Now().Add(time.Hour * 24),
+					}, nil)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, res)
+
+				gotUser := res.GetUser()
+				require.Equal(t, user.Username, gotUser.Username)
+				require.Equal(t, user.Email, gotUser.Email)
+				require.Equal(t, user.FullName, gotUser.FullName)
+
+				require.NotEmpty(t, res.GetSessionId())
+				require.NotEmpty(t, res.GetAccessToken())
+				require.NotEmpty(t, res.GetRefreshToken())
+
+				require.True(t, res.GetAccessToken() != res.GetRefreshToken())
+			},
+		},
+		{
+			name: "InternalError",
+			req: &pb.LoginUserRequest{
+				Username: user.Username,
+				Password: password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, sql.ErrConnDone)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Internal, st.Code())
+			},
+		},
+		{
+			name: "UserNotFound",
+			req: &pb.LoginUserRequest{
+				Username: "notfound",
+				Password: password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, pgx.ErrNoRows)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.NotFound, st.Code())
+			},
+		},
+		{
+			name: "IncorrectPassword",
+			req: &pb.LoginUserRequest{
+				Username: user.Username,
+				Password: "incorrect",
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.NotFound, st.Code())
+			},
+		},
+		{
+			name: "InvalidUsername",
+			req: &pb.LoginUserRequest{
+				Username: "*%(#$A$#(@))",
+				Password: password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Any()).
+					Times(0)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "InvalidPassword",
+			req: &pb.LoginUserRequest{
+				Username: user.Username,
+				Password: "abc",
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Any()).
+					Times(0)
+
+				store.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, res *pb.LoginUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		store := mockdb.NewMockStore(ctrl)
+
+		testCase.buildStubs(store)
+
+		server := NewTestServer(t, store)
+		res, err := server.LoginUser(context.Background(), testCase.req)
 		testCase.checkResponse(t, res, err)
 	}
 }
