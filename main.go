@@ -34,6 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot connect to db: ", err)
 	}
+
 	store := db.NewStore(connPool)
 	go runHTTPServer(context.Background(), cfg, store)
 	runGRPCServer(context.Background(), cfg, store)
@@ -56,7 +57,10 @@ func runDBMigrations(migrationURL, dbsource string) {
 }
 
 func runGRPCServer(ctx context.Context, cfg utils.Config, store db.Store) {
-	server := api.NewServer(store)
+	server, err := api.NewServer(cfg, store)
+	if err != nil {
+		log.Fatal("failed to create server")
+	}
 	grpcServer := grpc.NewServer()
 
 	pb.RegisterBankServiceServer(grpcServer, server)
@@ -71,7 +75,10 @@ func runGRPCServer(ctx context.Context, cfg utils.Config, store db.Store) {
 }
 
 func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
-	server := api.NewServer(store)
+	server, err := api.NewServer(cfg, store)
+	if err != nil {
+		log.Fatal("failed to create server")
+	}
 
 	mux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
@@ -84,8 +91,7 @@ func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
 		}),
 	)
 
-	err := pb.RegisterBankServiceHandlerServer(ctx, mux, server)
-	if err != nil {
+	if err := pb.RegisterBankServiceHandlerServer(ctx, mux, server); err != nil {
 		log.Fatal("failed to register http handler server")
 	}
 

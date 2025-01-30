@@ -21,6 +21,6 @@ protoc:
     proto/*.proto
 
 mock:
-	mockgen -destination db/mock/store.go github.com/valkyraycho/bank_project/db/sqlc Store
+	mockgen -package mockdb -destination db/mock/store.go github.com/valkyraycho/bank_project/db/sqlc Store
 
 .PHONY: migrateup migrateup1 migratedown migratedown1 test protoc mock
