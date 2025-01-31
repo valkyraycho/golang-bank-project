@@ -134,7 +134,7 @@ func validateLoginUserRequest(req *pb.LoginUserRequest) []*errdetails.BadRequest
 }
 
 func (s *Server) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.UpdateUserResponse, error) {
-	payload, err := s.authorizeUser(ctx, []string{utils.BankerRole, utils.DepositorRole})
+	payload, err := s.authorizeUser(ctx, []string{utils.BankerRole, utils.CustomerRole})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthorized: %s", err)
 	}
@@ -221,6 +221,7 @@ func validateUpdateUserRequest(req *pb.UpdateUserRequest) []*errdetails.BadReque
 
 func convertUser(user db.User) *pb.User {
 	return &pb.User{
+		Id:                user.ID,
 		Username:          user.Username,
 		FullName:          user.FullName,
 		Email:             user.Email,
