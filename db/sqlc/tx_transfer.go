@@ -5,9 +5,9 @@ import (
 )
 
 type TransferTxParams struct {
-	FromAccountID int64 `json:"from_account_id"`
-	ToAccountID   int64 `json:"to_account_id"`
-	Amount        int64 `json:"amount"`
+	FromAccountID int32 `json:"from_account_id"`
+	ToAccountID   int32 `json:"to_account_id"`
+	Amount        int32 `json:"amount"`
 }
 
 type TransferTxResult struct {
@@ -77,10 +77,10 @@ func (store *SQLStore) TransferTx(ctx context.Context, args TransferTxParams) (T
 func addMoney(
 	ctx context.Context,
 	q *Queries,
-	account1ID int64,
-	ammount1 int64,
-	account2ID int64,
-	ammount2 int64,
+	account1ID int32,
+	ammount1 int32,
+	account2ID int32,
+	ammount2 int32,
 ) (account1 Account, account2 Account, err error) {
 	account1, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
 		ID:     account1ID,

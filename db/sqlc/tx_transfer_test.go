@@ -12,7 +12,7 @@ func TestTransferTx(t *testing.T) {
 	account2 := randomAccount(t)
 
 	n := 5
-	amount := int64(10)
+	amount := int32(10)
 
 	errs := make(chan error)
 	results := make(chan TransferTxResult)
@@ -92,8 +92,8 @@ func TestTransferTx(t *testing.T) {
 	updatedAccount2, err := testStore.GetAccount(context.Background(), account2.ID)
 	require.NoError(t, err)
 
-	require.Equal(t, account1.Balance-amount*int64(n), updatedAccount1.Balance)
-	require.Equal(t, account2.Balance+amount*int64(n), updatedAccount2.Balance)
+	require.Equal(t, account1.Balance-amount*int32(n), updatedAccount1.Balance)
+	require.Equal(t, account2.Balance+amount*int32(n), updatedAccount2.Balance)
 }
 
 func TestTransferTxNoDeadLock(t *testing.T) {
@@ -101,7 +101,7 @@ func TestTransferTxNoDeadLock(t *testing.T) {
 	account2 := randomAccount(t)
 
 	n := 10
-	amount := int64(10)
+	amount := int32(10)
 
 	errs := make(chan error)
 

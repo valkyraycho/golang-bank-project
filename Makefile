@@ -23,4 +23,7 @@ protoc:
 mock:
 	mockgen -package mockdb -destination db/mock/store.go github.com/valkyraycho/bank_project/db/sqlc Store
 
+evans:
+	evans --host localhost --port 8081 -r repl
+
 .PHONY: migrateup migrateup1 migratedown migratedown1 test protoc mock

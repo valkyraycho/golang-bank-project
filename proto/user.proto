@@ -7,7 +7,7 @@ package pb;
 import "google/protobuf/timestamp.proto";
 
 message User {
-    int64 id = 7;
+    int32 id = 7;
     string username = 1;
     string full_name = 2;
     string email = 3;
@@ -42,7 +42,7 @@ message LoginUserResponse {
 }
 
 message UpdateUserRequest {
-    int64 id = 1;
+    int32 id = 1;
     optional string username = 2;
     optional string password = 3;
     optional string full_name = 4;

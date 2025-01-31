@@ -55,7 +55,7 @@ DELETE FROM users
 WHERE id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
+func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteUser, id)
 	return err
 }
@@ -94,7 +94,7 @@ RETURNING id, username, hashed_password, full_name, email, role, password_change
 `
 
 type UpdateUserParams struct {
-	ID                int64              `json:"id"`
+	ID                int32              `json:"id"`
 	Username          pgtype.Text        `json:"username"`
 	HashedPassword    pgtype.Text        `json:"hashed_password"`
 	FullName          pgtype.Text        `json:"full_name"`

@@ -83,7 +83,8 @@ func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
 	mux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 			MarshalOptions: protojson.MarshalOptions{
-				UseProtoNames: true,
+				EmitUnpopulated: true,
+				UseProtoNames:   true,
 			},
 			UnmarshalOptions: protojson.UnmarshalOptions{
 				DiscardUnknown: true,

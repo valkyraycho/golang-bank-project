@@ -18,8 +18,8 @@ RETURNING id, owner_id, balance, currency, created_at
 `
 
 type AddAccountBalanceParams struct {
-	Amount int64 `json:"amount"`
-	ID     int64 `json:"id"`
+	Amount int32 `json:"amount"`
+	ID     int32 `json:"id"`
 }
 
 func (q *Queries) AddAccountBalance(ctx context.Context, arg AddAccountBalanceParams) (Account, error) {
@@ -46,8 +46,8 @@ INSERT INTO accounts (
 `
 
 type CreateAccountParams struct {
-	OwnerID  int64  `json:"owner_id"`
-	Balance  int64  `json:"balance"`
+	OwnerID  int32  `json:"owner_id"`
+	Balance  int32  `json:"balance"`
 	Currency string `json:"currency"`
 }
 
@@ -69,7 +69,7 @@ DELETE FROM accounts
 WHERE id = $1
 `
 
-func (q *Queries) DeleteAccount(ctx context.Context, id int64) error {
+func (q *Queries) DeleteAccount(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteAccount, id)
 	return err
 }
@@ -79,7 +79,7 @@ SELECT id, owner_id, balance, currency, created_at FROM accounts
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
+func (q *Queries) GetAccount(ctx context.Context, id int32) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccount, id)
 	var i Account
 	err := row.Scan(
@@ -101,7 +101,7 @@ OFFSET $3
 `
 
 type ListAccountParams struct {
-	OwnerID int64 `json:"owner_id"`
+	OwnerID int32 `json:"owner_id"`
 	Limit   int32 `json:"limit"`
 	Offset  int32 `json:"offset"`
 }
@@ -141,8 +141,8 @@ RETURNING id, owner_id, balance, currency, created_at
 `
 
 type UpdateAccountParams struct {
-	ID      int64 `json:"id"`
-	Balance int64 `json:"balance"`
+	ID      int32 `json:"id"`
+	Balance int32 `json:"balance"`
 }
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {

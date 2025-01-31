@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/mail"
 	"regexp"
+	"slices"
+
+	"github.com/valkyraycho/bank_project/utils"
 )
 
 var (
@@ -47,6 +50,20 @@ func ValidateFullName(name string) error {
 	}
 	if !isValidFullName(name) {
 		return fmt.Errorf("must contain only letters or spaces")
+	}
+	return nil
+}
+
+func ValidateID(id int32) error {
+	if id <= 0 {
+		return fmt.Errorf("invalid id")
+	}
+	return nil
+}
+
+func ValidateCurrency(currency string) error {
+	if !slices.Contains(utils.SupportedCurrencies, currency) {
+		return fmt.Errorf("unsupported currency")
 	}
 	return nil
 }

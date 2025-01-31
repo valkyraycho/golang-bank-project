@@ -19,7 +19,7 @@ func NewTestServer(t *testing.T, store db.Store) *Server {
 	return server
 }
 
-func newContextWithBearerToken(t *testing.T, tokenMaker token.TokenMaker, user_id int64, role string, duration time.Duration) context.Context {
+func newContextWithBearerToken(t *testing.T, tokenMaker token.TokenMaker, user_id int32, role string, duration time.Duration) context.Context {
 	accessToken, _, err := tokenMaker.CreateToken(user_id, role, duration)
 	require.NoError(t, err)
 	return metadata.NewIncomingContext(context.Background(), metadata.MD{

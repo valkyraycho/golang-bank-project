@@ -39,7 +39,7 @@ func (s *Server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			if pgErr.Code == db.UniqueViolation {
-				return nil, status.Errorf(codes.AlreadyExists, "username already exists: %s", err)
+				return nil, status.Errorf(codes.AlreadyExists, "already exists: %s", err)
 			}
 		}
 		return nil, status.Errorf(codes.Internal, "failed to create user: %s", err)
@@ -149,7 +149,7 @@ func (s *Server) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb
 	}
 
 	args := db.UpdateUserParams{
-		ID: req.Id,
+		ID: req.GetId(),
 		Username: pgtype.Text{
 			String: req.GetUsername(),
 			Valid:  req.Username != nil,

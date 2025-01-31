@@ -8,15 +8,14 @@ import "google/protobuf/timestamp.proto";
 
 
 message Account {
-    int64 owner_id = 1;
-    int64 balance = 2;
+    int32 owner_id = 1;
+    int32 balance = 2;
     string currency = 3;
     google.protobuf.Timestamp created_at = 4;
 }
 
 message CreateAccountRequest {
-    int64 owner_id = 1;
-    int64 balance = 2;
+    int32 owner_id = 1;
     string currency = 3;
 }
 
@@ -25,7 +24,7 @@ message CreateAccountResponse {
 }
 
 message GetAccountRequest {
-    int64 id = 1;
+    int32 id = 1;
 }
 
 message GetAccountResponse {
@@ -33,7 +32,7 @@ message GetAccountResponse {
 }
 
 message GetAccountsRequest {
-    int64 owner_id = 1;
+    int32 owner_id = 1;
     int32 limit = 2;
     int32 offset = 3;
 }

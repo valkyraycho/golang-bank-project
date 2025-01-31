@@ -19,8 +19,8 @@ INSERT INTO entries (
 `
 
 type CreateEntryParams struct {
-	AccountID int64 `json:"account_id"`
-	Amount    int64 `json:"amount"`
+	AccountID int32 `json:"account_id"`
+	Amount    int32 `json:"amount"`
 }
 
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error) {
@@ -40,7 +40,7 @@ SELECT id, account_id, amount, created_at FROM entries
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetEntry(ctx context.Context, id int64) (Entry, error) {
+func (q *Queries) GetEntry(ctx context.Context, id int32) (Entry, error) {
 	row := q.db.QueryRow(ctx, getEntry, id)
 	var i Entry
 	err := row.Scan(
@@ -61,7 +61,7 @@ OFFSET $3
 `
 
 type ListEntriesParams struct {
-	AccountID int64 `json:"account_id"`
+	AccountID int32 `json:"account_id"`
 	Limit     int32 `json:"limit"`
 	Offset    int32 `json:"offset"`
 }

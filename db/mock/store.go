@@ -133,7 +133,7 @@ func (mr *MockStoreMockRecorder) CreateUser(ctx, arg any) *gomock.Call {
 }
 
 // DeleteAccount mocks base method.
-func (m *MockStore) DeleteAccount(ctx context.Context, id int64) error {
+func (m *MockStore) DeleteAccount(ctx context.Context, id int32) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAccount", ctx, id)
 	ret0, _ := ret[0].(error)
@@ -147,7 +147,7 @@ func (mr *MockStoreMockRecorder) DeleteAccount(ctx, id any) *gomock.Call {
 }
 
 // DeleteUser mocks base method.
-func (m *MockStore) DeleteUser(ctx context.Context, id int64) error {
+func (m *MockStore) DeleteUser(ctx context.Context, id int32) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteUser", ctx, id)
 	ret0, _ := ret[0].(error)
@@ -161,7 +161,7 @@ func (mr *MockStoreMockRecorder) DeleteUser(ctx, id any) *gomock.Call {
 }
 
 // GetAccount mocks base method.
-func (m *MockStore) GetAccount(ctx context.Context, id int64) (db.Account, error) {
+func (m *MockStore) GetAccount(ctx context.Context, id int32) (db.Account, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAccount", ctx, id)
 	ret0, _ := ret[0].(db.Account)
@@ -176,7 +176,7 @@ func (mr *MockStoreMockRecorder) GetAccount(ctx, id any) *gomock.Call {
 }
 
 // GetEntry mocks base method.
-func (m *MockStore) GetEntry(ctx context.Context, id int64) (db.Entry, error) {
+func (m *MockStore) GetEntry(ctx context.Context, id int32) (db.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEntry", ctx, id)
 	ret0, _ := ret[0].(db.Entry)
@@ -206,7 +206,7 @@ func (mr *MockStoreMockRecorder) GetSession(ctx, id any) *gomock.Call {
 }
 
 // GetTransfer mocks base method.
-func (m *MockStore) GetTransfer(ctx context.Context, id int64) (db.Transfer, error) {
+func (m *MockStore) GetTransfer(ctx context.Context, id int32) (db.Transfer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTransfer", ctx, id)
 	ret0, _ := ret[0].(db.Transfer)

@@ -9,7 +9,7 @@ import (
 
 type Payload struct {
 	ID        uuid.UUID `json:"id"`
-	UserID    int64     `json:"user_id"`
+	UserID    int32     `json:"user_id"`
 	Role      string    `json:"role"`
 	IssuedAt  time.Time `json:"issued_at"`
 	ExpiredAt time.Time `json:"expired_at"`
@@ -20,7 +20,7 @@ var (
 	ErrInvalidToken = errors.New("token is invalid")
 )
 
-func NewPayload(userID int64, role string, duration time.Duration) (*Payload, error) {
+func NewPayload(userID int32, role string, duration time.Duration) (*Payload, error) {
 	tokenID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err

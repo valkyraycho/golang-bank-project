@@ -34,11 +34,11 @@ func RandomCurrency() string {
 	return SupportedCurrencies[rand.Intn(len(SupportedCurrencies))]
 }
 
-func RandomInt(min, max int64) int64 {
-	return min + rand.Int63n(max-min+1)
+func RandomInt(min, max int32) int32 {
+	return min + rand.Int31n(max-min+1)
 }
 
-func RandomMoney() int64 {
+func RandomMoney() int32 {
 	return RandomInt(0, 1000)
 }
 
