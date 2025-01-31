@@ -81,3 +81,10 @@ func ValidateOffset(offset int32) error {
 	}
 	return nil
 }
+
+func ValidateAmount(amount int32) error {
+	if amount < 0 {
+		return fmt.Errorf("invalid amount")
+	}
+	return nil
+}
