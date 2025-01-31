@@ -101,6 +101,64 @@ func validateGetAccountRequest(req *pb.GetAccountRequest) []*errdetails.BadReque
 	return violations
 }
 
+func (s *Server) GetAccounts(ctx context.Context, req *pb.GetAccountsRequest) (*pb.GetAccountsResponse, error) {
+	payload, err := s.authorizeUser(ctx, utils.SelfAndBanker)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized: %s", err)
+	}
+
+	violations := validateGetAccountsRequest(req)
+
+	if len(violations) > 0 {
+		return nil, invalidArgumentsError(violations)
+	}
+
+	accounts, err := s.store.ListAccount(ctx, db.ListAccountParams{
+		OwnerID: payload.UserID,
+		Limit:   req.GetLimit(),
+		Offset:  req.GetOffset(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to retrieve account: %s", err)
+	}
+
+	if payload.Role != utils.BankerRole && payload.UserID != accounts[0].OwnerID {
+		return nil, status.Error(codes.PermissionDenied, "no permission to retrieve accounts that do not belong to you")
+	}
+
+	pbAccounts := []*pb.Account{}
+	for _, account := range accounts {
+		pbAccounts = append(pbAccounts, convertAccount(account))
+	}
+
+	return &pb.GetAccountsResponse{Accounts: pbAccounts}, nil
+}
+
+func validateGetAccountsRequest(req *pb.GetAccountsRequest) []*errdetails.BadRequest_FieldViolation {
+	violations := []*errdetails.BadRequest_FieldViolation{}
+
+	defaultLimit := int32(5)
+	defaultOffset := int32(0)
+
+	if req.Limit != nil {
+		if err := validator.ValidateLimit(req.GetLimit()); err != nil {
+			violations = append(violations, fieldViolation("limit", err))
+		}
+	} else {
+		req.Limit = &defaultLimit
+	}
+
+	if req.Offset != nil {
+		if err := validator.ValidateOffset(req.GetOffset()); err != nil {
+			violations = append(violations, fieldViolation("offset", err))
+		}
+	} else {
+		req.Offset = &defaultOffset
+	}
+
+	return violations
+}
+
 func convertAccount(account db.Account) *pb.Account {
 	return &pb.Account{
 		Id:        account.ID,

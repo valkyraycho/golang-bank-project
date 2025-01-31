@@ -67,3 +67,17 @@ func ValidateCurrency(currency string) error {
 	}
 	return nil
 }
+
+func ValidateLimit(limit int32) error {
+	if limit <= 0 {
+		return fmt.Errorf("invalid limit")
+	}
+	return nil
+}
+
+func ValidateOffset(offset int32) error {
+	if offset < 0 {
+		return fmt.Errorf("invalid offset")
+	}
+	return nil
+}

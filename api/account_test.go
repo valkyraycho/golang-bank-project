@@ -407,6 +407,182 @@ func TestGetAccount(t *testing.T) {
 	}
 }
 
+func TestGetAccounts(t *testing.T) {
+	user, _ := randomUser(t)
+	accounts := randomAccountsFromUser(user.ID)
+
+	defaultLimit := int32(5)
+	defaultOffset := int32(0)
+
+	invalidLimit := int32(-1)
+	invalidOffset := int32(-1)
+
+	testCases := []struct {
+		name          string
+		req           *pb.GetAccountsRequest
+		buildStubs    func(store *mockdb.MockStore)
+		buildContext  func(t *testing.T, tokenMaker token.TokenMaker) context.Context
+		checkResponse func(t *testing.T, res *pb.GetAccountsResponse, err error)
+	}{
+		{
+			name: "OK",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Eq(db.ListAccountParams{
+						OwnerID: user.ID,
+						Limit:   defaultLimit,
+						Offset:  defaultOffset,
+					})).
+					Times(1).
+					Return(accounts, nil)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.NoError(t, err)
+				require.NotEmpty(t, res)
+				gotAccounts := res.GetAccounts()
+				require.NotEmpty(t, gotAccounts)
+				require.Len(t, gotAccounts, 3)
+
+				seen := make(map[string]bool)
+				for _, account := range gotAccounts {
+					require.NotZero(t, account.Id)
+					require.Equal(t, user.ID, account.OwnerId)
+					require.Equal(t, int32(0), account.Balance)
+					require.Contains(t, utils.SupportedCurrencies, account.Currency)
+					require.NotContains(t, seen, account.Currency)
+					seen[account.Currency] = true
+				}
+			},
+		},
+		{
+			name: "InternalError",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(nil, sql.ErrConnDone)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Internal, st.Code())
+			},
+		},
+		{
+			name: "ExpiredToken",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, -time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Unauthenticated, st.Code())
+			},
+		},
+		{
+			name: "MissingAuthorization",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return context.Background()
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Unauthenticated, st.Code())
+			},
+		},
+		{
+			name: "PermissionDenied",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(accounts, nil)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, -1, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.PermissionDenied, st.Code())
+			},
+		},
+		{
+			name: "InvalidLimit",
+			req:  &pb.GetAccountsRequest{Limit: &invalidLimit, Offset: &defaultOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "InvalidOffset",
+			req:  &pb.GetAccountsRequest{Limit: &defaultLimit, Offset: &invalidOffset},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					ListAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.GetAccountsResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := mockdb.NewMockStore(ctrl)
+		testCase.buildStubs(store)
+
+		server := NewTestServer(t, store)
+		res, err := server.GetAccounts(testCase.buildContext(t, server.tokenMaker), testCase.req)
+		testCase.checkResponse(t, res, err)
+	}
+}
+
 func randomAccount(t *testing.T) (db.User, db.Account) {
 	user, _ := randomUser(t)
 	return user, db.Account{
@@ -415,4 +591,19 @@ func randomAccount(t *testing.T) (db.User, db.Account) {
 		Balance:  0,
 		Currency: utils.CAD,
 	}
+}
+
+func randomAccountsFromUser(userID int32) []db.Account {
+	accounts := []db.Account{}
+
+	for i, currency := range utils.SupportedCurrencies {
+		accounts = append(accounts, db.Account{
+			ID:       int32(i + 1),
+			OwnerID:  userID,
+			Currency: currency,
+			Balance:  0,
+		})
+	}
+
+	return accounts
 }
