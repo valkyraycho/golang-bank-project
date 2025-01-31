@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	mockdb "github.com/valkyraycho/bank_project/db/mock"
 	db "github.com/valkyraycho/bank_project/db/sqlc"
 	"github.com/valkyraycho/bank_project/pb"
+	"github.com/valkyraycho/bank_project/token"
 	"github.com/valkyraycho/bank_project/utils"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
@@ -400,11 +402,305 @@ func TestLoginUser(t *testing.T) {
 	}
 }
 
+func TestUpdateUser(t *testing.T) {
+	user, _ := randomUser(t)
+
+	newName := utils.RandomName()
+	newEmail := utils.RandomEmail()
+
+	invalidUsername := "*%(#$A$#(@))"
+	invalidFullName := "*%(#$A$#(@))"
+	invalidEmail := "invalid_email"
+	InvalidPassword := "abc"
+
+	testCases := []struct {
+		name          string
+		req           *pb.UpdateUserRequest
+		buildStubs    func(store *mockdb.MockStore)
+		buildContext  func(t *testing.T, tokenMaker token.TokenMaker) context.Context
+		checkResponse func(t *testing.T, res *pb.UpdateUserResponse, err error)
+	}{
+		{
+			name: "OK",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Eq(db.UpdateUserParams{
+						ID: user.ID,
+						Username: pgtype.Text{
+							String: newName,
+							Valid:  true,
+						},
+						Email: pgtype.Text{
+							String: newEmail,
+							Valid:  true,
+						},
+						FullName: pgtype.Text{
+							String: newName,
+							Valid:  true,
+						},
+					})).
+					Times(1).
+					Return(db.User{
+						ID:                user.ID,
+						Username:          newName,
+						HashedPassword:    user.HashedPassword,
+						FullName:          newName,
+						Email:             newEmail,
+						PasswordChangedAt: user.PasswordChangedAt,
+						CreatedAt:         user.CreatedAt,
+					}, nil)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.NoError(t, err)
+				require.NotEmpty(t, res)
+				updatedUser := res.GetUser()
+				require.NotEmpty(t, updatedUser)
+				require.Equal(t, newName, updatedUser.Username)
+				require.Equal(t, newEmail, updatedUser.Email)
+				require.Equal(t, newName, updatedUser.FullName)
+			},
+		},
+		{
+			name: "InternalError",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, sql.ErrConnDone)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Internal, st.Code())
+			},
+		},
+		{
+			name: "UserNotFound",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, pgx.ErrNoRows)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.NotFound, st.Code())
+			},
+		},
+		{
+			name: "MissingAuthorization",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return context.Background()
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Unauthenticated, st.Code())
+			},
+		},
+		{
+			name: "ExpiredToken",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, -time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Unauthenticated, st.Code())
+			},
+		},
+		{
+			name: "InvalidUsername",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &invalidUsername,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "InvalidEmail",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &invalidEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "InvalidFullName",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &invalidFullName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "InvalidPassword",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+				Password: &InvalidPassword,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, user.ID, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.InvalidArgument, st.Code())
+			},
+		},
+		{
+			name: "PermissionDenied",
+			req: &pb.UpdateUserRequest{
+				Id:       user.ID,
+				Username: &newName,
+				Email:    &newEmail,
+				FullName: &newName,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			buildContext: func(t *testing.T, tokenMaker token.TokenMaker) context.Context {
+				return newContextWithBearerToken(t, tokenMaker, 0, user.Role, time.Minute)
+			},
+			checkResponse: func(t *testing.T, res *pb.UpdateUserResponse, err error) {
+				require.Error(t, err)
+				st, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.PermissionDenied, st.Code())
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := mockdb.NewMockStore(ctrl)
+		testCase.buildStubs(store)
+
+		server := NewTestServer(t, store)
+
+		res, err := server.UpdateUser(testCase.buildContext(t, server.tokenMaker), testCase.req)
+		testCase.checkResponse(t, res, err)
+	}
+}
+
 func randomUser(t *testing.T) (db.User, string) {
 	password := utils.RandomString(8)
 	hashedPassword, err := utils.HashPassword(password)
 	require.NoError(t, err)
 	return db.User{
+		ID:             utils.RandomInt(1, 100),
 		Username:       utils.RandomName(),
 		HashedPassword: hashedPassword,
 		FullName:       utils.RandomName(),

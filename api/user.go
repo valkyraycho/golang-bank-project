@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/valkyraycho/bank_project/db/sqlc"
 	"github.com/valkyraycho/bank_project/pb"
 	"github.com/valkyraycho/bank_project/utils"
@@ -42,34 +44,25 @@ func (s *Server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 		}
 		return nil, status.Errorf(codes.Internal, "failed to create user: %s", err)
 	}
-	return &pb.CreateUserResponse{
-		User: &pb.User{
-			Username:          user.Username,
-			FullName:          user.FullName,
-			Email:             user.Email,
-			Role:              user.Role,
-			PasswordChangedAt: timestamppb.New(user.PasswordChangedAt),
-			CreatedAt:         timestamppb.New(user.CreatedAt),
-		},
-	}, nil
+	return &pb.CreateUserResponse{User: convertUser(user)}, nil
 }
 
 func validateCreateUserRequest(req *pb.CreateUserRequest) []*errdetails.BadRequest_FieldViolation {
 	violations := []*errdetails.BadRequest_FieldViolation{}
 
-	if err := validator.ValidateUsername(req.Username); err != nil {
+	if err := validator.ValidateUsername(req.GetUsername()); err != nil {
 		violations = append(violations, fieldViolation("username", err))
 	}
 
-	if err := validator.ValidatePassword(req.Password); err != nil {
+	if err := validator.ValidatePassword(req.GetPassword()); err != nil {
 		violations = append(violations, fieldViolation("password", err))
 	}
 
-	if err := validator.ValidateFullName(req.FullName); err != nil {
+	if err := validator.ValidateFullName(req.GetFullName()); err != nil {
 		violations = append(violations, fieldViolation("full_name", err))
 	}
 
-	if err := validator.ValidateEmail(req.Email); err != nil {
+	if err := validator.ValidateEmail(req.GetEmail()); err != nil {
 		violations = append(violations, fieldViolation("email", err))
 	}
 	return violations
@@ -118,14 +111,7 @@ func (s *Server) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 	}
 
 	return &pb.LoginUserResponse{
-		User: &pb.User{
-			Username:          user.Username,
-			FullName:          user.FullName,
-			Email:             user.Email,
-			Role:              user.Role,
-			CreatedAt:         timestamppb.New(user.CreatedAt),
-			PasswordChangedAt: timestamppb.New(user.PasswordChangedAt),
-		},
+		User:                  convertUser(user),
 		SessionId:             session.ID.String(),
 		AccessToken:           accessToken,
 		RefreshToken:          refreshToken,
@@ -137,12 +123,109 @@ func (s *Server) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.L
 func validateLoginUserRequest(req *pb.LoginUserRequest) []*errdetails.BadRequest_FieldViolation {
 	violations := []*errdetails.BadRequest_FieldViolation{}
 
-	if err := validator.ValidateUsername(req.Username); err != nil {
+	if err := validator.ValidateUsername(req.GetUsername()); err != nil {
 		violations = append(violations, fieldViolation("username", err))
 	}
 
-	if err := validator.ValidatePassword(req.Password); err != nil {
+	if err := validator.ValidatePassword(req.GetPassword()); err != nil {
 		violations = append(violations, fieldViolation("password", err))
 	}
 	return violations
+}
+
+func (s *Server) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.UpdateUserResponse, error) {
+	payload, err := s.authorizeUser(ctx, []string{utils.BankerRole, utils.DepositorRole})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized: %s", err)
+	}
+
+	violations := validateUpdateUserRequest(req)
+	if len(violations) > 0 {
+		return nil, invalidArgumentsError(violations)
+	}
+
+	if payload.Role != utils.BankerRole && req.GetId() != payload.UserID {
+		return nil, status.Error(codes.PermissionDenied, "no permission to update other user's info")
+	}
+
+	args := db.UpdateUserParams{
+		ID: req.Id,
+		Username: pgtype.Text{
+			String: req.GetUsername(),
+			Valid:  req.Username != nil,
+		},
+		FullName: pgtype.Text{
+			String: req.GetFullName(),
+			Valid:  req.FullName != nil,
+		},
+		Email: pgtype.Text{
+			String: req.GetEmail(),
+			Valid:  req.Email != nil,
+		},
+	}
+
+	if req.Password != nil {
+		hashedPassword, err := utils.HashPassword(req.GetPassword())
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to hash password: %s", err)
+		}
+
+		args.HashedPassword = pgtype.Text{
+			String: hashedPassword,
+			Valid:  true,
+		}
+		args.PasswordChangedAt = pgtype.Timestamptz{
+			Time:  time.Now(),
+			Valid: true,
+		}
+	}
+
+	user, err := s.store.UpdateUser(ctx, args)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, status.Errorf(codes.NotFound, "user not found: %s", err)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to update user: %s", err)
+	}
+	return &pb.UpdateUserResponse{User: convertUser(user)}, nil
+}
+
+func validateUpdateUserRequest(req *pb.UpdateUserRequest) []*errdetails.BadRequest_FieldViolation {
+	violations := []*errdetails.BadRequest_FieldViolation{}
+
+	if req.Username != nil {
+		if err := validator.ValidateUsername(req.GetUsername()); err != nil {
+			violations = append(violations, fieldViolation("username", err))
+		}
+	}
+
+	if req.Password != nil {
+		if err := validator.ValidatePassword(req.GetPassword()); err != nil {
+			violations = append(violations, fieldViolation("password", err))
+		}
+	}
+
+	if req.FullName != nil {
+		if err := validator.ValidateFullName(req.GetFullName()); err != nil {
+			violations = append(violations, fieldViolation("full_name", err))
+		}
+	}
+
+	if req.Email != nil {
+		if err := validator.ValidateEmail(req.GetEmail()); err != nil {
+			violations = append(violations, fieldViolation("email", err))
+		}
+	}
+	return violations
+}
+
+func convertUser(user db.User) *pb.User {
+	return &pb.User{
+		Username:          user.Username,
+		FullName:          user.FullName,
+		Email:             user.Email,
+		Role:              user.Role,
+		PasswordChangedAt: timestamppb.New(user.PasswordChangedAt),
+		CreatedAt:         timestamppb.New(user.CreatedAt),
+	}
 }
