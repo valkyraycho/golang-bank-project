@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
+	"os"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -23,16 +26,18 @@ import (
 const migrationURL = "file://db/migration"
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
 	cfg, err := utils.LoadConfig(".")
 	if err != nil {
-		log.Fatal("cannot load environment variables")
+		log.Fatal().Msgf("cannot load environment variables: %s", err)
 	}
 
 	runDBMigrations(migrationURL, cfg.DBSource)
 
 	connPool, err := pgxpool.New(context.Background(), cfg.DBSource)
 	if err != nil {
-		log.Fatal("cannot connect to db: ", err)
+		log.Fatal().Msgf("cannot connect to db: %s", err)
 	}
 
 	store := db.NewStore(connPool)
@@ -43,41 +48,42 @@ func main() {
 func runDBMigrations(migrationURL, dbsource string) {
 	migration, err := migrate.New(migrationURL, dbsource)
 	if err != nil {
-		log.Fatal("cannot create new migration instance: ", err)
+		log.Fatal().Msgf("cannot create new migration instance: %s", err)
 	}
 	if err := migration.Up(); err != nil {
 		if err == migrate.ErrNoChange {
-			log.Println("database already migrated to the latest version")
+			log.Info().Msg("database already migrated to the latest version")
 			return
 		}
-		log.Fatal("failed to migrate")
+		log.Fatal().Msgf("failed to migrate: %s", err)
 		return
 	}
-	log.Println("database migrated successfully")
+	log.Info().Msg("database migrated successfully")
 }
 
 func runGRPCServer(ctx context.Context, cfg utils.Config, store db.Store) {
 	server, err := api.NewServer(cfg, store)
 	if err != nil {
-		log.Fatal("failed to create server")
+		log.Fatal().Msgf("failed to create server: %s", err)
 	}
-	grpcServer := grpc.NewServer()
+
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(api.GRPCLogger))
 
 	pb.RegisterBankServiceServer(grpcServer, server)
 	reflection.Register(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPCServerAddress)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatal().Msgf("failed to listen: %v", err)
 	}
-	log.Printf("start gRPC server at %s", cfg.GRPCServerAddress)
+	log.Info().Msgf("start gRPC server at %s", cfg.GRPCServerAddress)
 	grpcServer.Serve(lis)
 }
 
 func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
 	server, err := api.NewServer(cfg, store)
 	if err != nil {
-		log.Fatal("failed to create server")
+		log.Fatal().Msgf("failed to create server: %s", err)
 	}
 
 	mux := runtime.NewServeMux(
@@ -93,9 +99,9 @@ func runHTTPServer(ctx context.Context, cfg utils.Config, store db.Store) {
 	)
 
 	if err := pb.RegisterBankServiceHandlerServer(ctx, mux, server); err != nil {
-		log.Fatal("failed to register http handler server")
+		log.Fatal().Msg("failed to register http handler server")
 	}
 
-	log.Printf("start http server at %s", cfg.HTTPServerAddress)
-	http.ListenAndServe(cfg.HTTPServerAddress, mux)
+	log.Info().Msgf("start http server at %s", cfg.HTTPServerAddress)
+	http.ListenAndServe(cfg.HTTPServerAddress, api.HTTPLogger(mux))
 }
