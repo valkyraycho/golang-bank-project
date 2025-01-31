@@ -8,6 +8,7 @@ import "google/protobuf/timestamp.proto";
 
 
 message Account {
+    int32 id = 5;
     int32 owner_id = 1;
     int32 balance = 2;
     string currency = 3;
@@ -25,7 +26,6 @@ message CreateAccountResponse {
 
 message GetAccountRequest {
     int32 id = 1;
-    int32 owner_id = 2;
 }
 
 message GetAccountResponse {
